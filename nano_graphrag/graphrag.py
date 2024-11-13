@@ -253,11 +253,13 @@ class GraphRAG:
         try:
             if isinstance(string_or_strings, str):
                 string_or_strings = [string_or_strings]
+            keys = []
             # ---------- new docs
             new_docs = {
                 compute_mdhash_id(c.strip(), prefix="doc-"): {"content": c.strip()}
                 for c in string_or_strings
             }
+            keys.extend(list(new_docs.keys()))
             _add_doc_keys = await self.full_docs.filter_keys(list(new_docs.keys()))
             new_docs = {k: v for k, v in new_docs.items() if k in _add_doc_keys}
             if not len(new_docs):
@@ -273,6 +275,7 @@ class GraphRAG:
                 overlap_token_size=self.chunk_overlap_token_size,
                 max_token_size=self.chunk_token_size,
             )
+            keys.extend(list(inserting_chunks.keys()))
 
             _add_chunk_keys = await self.text_chunks.filter_keys(
                 list(inserting_chunks.keys())
@@ -293,12 +296,13 @@ class GraphRAG:
 
             # ---------- extract/summary entity and upsert to graph
             logger.info("[Entity Extraction]...")
-            maybe_new_kg = await self.entity_extraction_func(
+            maybe_new_kg, entity_keys = await self.entity_extraction_func(
                 inserting_chunks,
                 knwoledge_graph_inst=self.chunk_entity_relation_graph,
                 entity_vdb=self.entities_vdb,
                 global_config=asdict(self),
             )
+            keys.extend(entity_keys)
             if maybe_new_kg is None:
                 logger.warning("No new entities found")
                 return
@@ -317,6 +321,7 @@ class GraphRAG:
             await self.text_chunks.upsert(inserting_chunks)
         finally:
             await self._insert_done()
+        return keys
 
     async def _insert_start(self):
         tasks = []

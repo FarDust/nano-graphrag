@@ -416,7 +416,7 @@ async def extract_entities(
             for dp in all_entities_data
         }
         await entity_vdb.upsert(data_for_vdb)
-    return knwoledge_graph_inst
+    return knwoledge_graph_inst, list(data_for_vdb.keys())
 
 
 def _pack_single_community_by_sub_communities(
